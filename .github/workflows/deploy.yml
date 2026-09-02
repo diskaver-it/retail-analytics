@@ -1,0 +1,79 @@
+name: deploy dashboard
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: install
+        run: pip install -e . "dbt-duckdb>=1.9"
+
+      # The extract is a static 2011 file that will never change, so it is cached
+      # rather than pulled off a university server on every deploy.
+      - name: cache the UCI extract
+        uses: actions/cache@v4
+        with:
+          path: data/raw
+          key: uci-online-retail-ii-v1
+
+      - name: build the warehouse
+        run: python -m retail_analytics all
+
+      - name: build the models
+        working-directory: transform
+        env:
+          DBT_PROFILES_DIR: .
+        run: |
+          dbt deps
+          dbt build
+
+      # The production build wants more than 1.5 GB of heap, which is why it runs
+      # here rather than on whatever laptop happens to be to hand.
+      - name: build the dashboard
+        working-directory: dashboard
+        env:
+          EVIDENCE_TELEMETRY_DISABLED: "1"
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm ci
+          npm run sources
+          npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
