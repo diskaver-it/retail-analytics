@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: install
+        run: pip install -e ".[dev]" "dbt-duckdb>=1.9"
+
+      - name: python tests
+        run: pytest
+
+      # The dbt models are built against the synthetic warehouse rather than the
+      # real extract. CI is not going to pull 45 MB off a university server on
+      # every push, and a dbt project that never gets built is just untested SQL.
+      - name: seed a synthetic warehouse
+        run: python -m retail_analytics synthetic --warehouse data/ci.duckdb
+
+      - name: build and test the dbt models
+        working-directory: transform
+        env:
+          DBT_PROFILES_DIR: .
+          RETAIL_DUCKDB: ../data/ci.duckdb
+        run: |
+          dbt deps
+          dbt build
