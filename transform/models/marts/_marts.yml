@@ -1,0 +1,114 @@
+version: 2
+
+models:
+  - name: fct_order_lines
+    description: >
+      One line of merchandise on one invoice. Non-product codes and exact
+      duplicate rows are removed here; cancellations and guest lines are kept.
+    columns:
+      - name: order_line_id
+        data_tests: [unique, not_null]
+      - name: invoice_no
+        data_tests: [not_null]
+      - name: stock_code
+        data_tests: [not_null]
+      - name: invoice_date
+        data_tests: [not_null]
+      - name: line_revenue
+        data_tests: [not_null]
+      - name: customer_id
+        description: Null on guest lines. Not tested for null on purpose.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_id
+              config:
+                # Purchase lines only. A customer whose sole appearance in this
+                # window is a return bought before the extract starts, so it has
+                # no purchase here and correctly has no row in dim_customer.
+                # The other half of that claim is enforced in
+                # tests/assert_missing_customers_only_ever_returned.sql.
+                where: "customer_id is not null and not is_cancellation"
+
+  - name: dim_customer
+    description: One row per identified customer. Guests cannot appear here.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: cohort_month
+        data_tests: [not_null]
+      - name: orders
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                inclusive: true
+      - name: first_order_date
+        data_tests: [not_null]
+
+  - name: dim_product
+    columns:
+      - name: stock_code
+        data_tests: [unique, not_null]
+      - name: description
+        description: Most frequent spelling seen for the code.
+
+  - name: dim_date
+    columns:
+      - name: date_day
+        data_tests: [unique, not_null]
+      - name: month_start
+        data_tests: [not_null]
+
+  - name: mart_monthly_revenue
+    columns:
+      - name: month_start
+        data_tests: [unique, not_null]
+      - name: is_partial_month
+        description: True for the month the extract stops in. Mask it in charts.
+        data_tests: [not_null]
+
+  - name: mart_cohort_retention
+    description: Cohort triangle. Grain is one row per cohort month and month offset.
+    columns:
+      - name: cohort_month
+        data_tests: [not_null]
+      - name: months_since
+        data_tests: [not_null]
+      - name: retention_pct
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+                inclusive: true
+
+  - name: mart_rfm
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: r_score
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+      - name: f_score
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+      - name: m_score
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
+      - name: segment
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Champions, Loyal, New, Promising, "At risk", "Needs attention", Hibernating]
