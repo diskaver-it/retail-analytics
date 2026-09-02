@@ -3,19 +3,19 @@
 A warehouse and a set of analytics models over the UCI **Online Retail II** extract:
 1,067,371 invoice lines from a UK online gift wholesaler, December 2009 to December 2011.
 
-The pipeline is `download → land → warehouse → dbt → marts`. Python moves bytes as far as
-`raw.transactions`; everything after that is SQL.
+The pipeline is `download → land → warehouse → dbt → marts → dashboard`. Python moves bytes as
+far as `raw.transactions`; everything after that is SQL, and the dashboard is markdown.
 
 ```
-ingest (python)          transform (dbt)              marts
-─────────────────        ─────────────────            ─────────────────
-UCI .xlsx                stg_transactions             fct_order_lines
-  → parquet landing        (typed + flagged,          dim_customer
-  → raw.transactions        nothing removed)          dim_product
-                                                      dim_date
-                                                      mart_monthly_revenue
-                                                      mart_cohort_retention
-                                                      mart_rfm
+ingest (python)        transform (dbt)         marts                    dashboard (evidence)
+──────────────────     ─────────────────       ────────────────────     ────────────────────
+UCI .xlsx              stg_transactions        fct_order_lines          Trading overview
+ → parquet landing      (typed + flagged,      dim_customer             Customers
+ → raw.transactions      nothing removed)      dim_product              What was removed
+                                               dim_date
+                                               mart_monthly_revenue
+                                               mart_cohort_retention
+                                               mart_rfm
 ```
 
 **54 dbt checks and 25 Python tests, all green.** The dbt models are built in CI against a
@@ -24,13 +24,24 @@ synthetic warehouse, so every model and every test runs on each push without dow
 
 ## What the data turned out to be
 
+As loaded, before any modelling:
+
 | | |
 |---|---|
 | Rows landed | 1,067,371 |
 | Invoices | 53,628 |
-| Identified customers | 5,942 |
-| Products | 5,304 |
+| Distinct customer ids | 5,942 |
+| Distinct stock codes | 5,304 |
 | Window | 2009-12-01 → 2011-12-09 |
+
+After the models, which is a different population — bookkeeping lines and duplicates are gone,
+and a customer needs at least one purchase to get a row:
+
+| | |
+|---|---|
+| Order lines | 1,027,054 |
+| Orders (excluding cancellations) | 44,715 |
+| Customers with a purchase | 5,853 |
 | Net revenue | £18,925,714 |
 | Repeat customers | 72.3% |
 
@@ -114,6 +125,24 @@ product's does — the December 2009 cohort sits between 33% and 42% monthly for
 and month 3 (42.5%) is higher than month 1 (35.0%), which is seasonal reordering rather than
 a leak.
 
+## The dashboard
+
+Three pages, built with [Evidence](https://evidence.dev) — the whole dashboard is markdown and
+SQL in `dashboard/`, so it diffs and reviews like the rest of the repo rather than sitting in a
+binary nobody can open.
+
+- **Trading overview** — headline figures, revenue by month, and the split between money that can
+  be tied to a customer and money that cannot.
+- **Customers** — cohort retention and RFM segments, with the caveats on the page rather than in
+  a footnote.
+- **What was removed** — the rows the pipeline dropped and the argument for dropping them.
+
+The third page is the unusual one. It is there because every figure on the other two depends on
+it: a reader who cannot see what was thrown away has no way to judge what is left.
+
+GitHub Actions rebuilds the warehouse, runs `dbt build`, builds the site and publishes it to
+Pages on every push to `main`.
+
 ## Running it
 
 ```bash
@@ -131,6 +160,15 @@ Then the models:
 ```bash
 cd transform && DBT_PROFILES_DIR=. dbt deps && DBT_PROFILES_DIR=. dbt build
 ```
+
+And the dashboard, which reads the warehouse the models just built:
+
+```bash
+cd dashboard && npm install && npm run sources && npm run dev
+```
+
+It comes up on <http://localhost:3000/retail-analytics> — the base path is set for GitHub Pages
+and applies in dev too.
 
 Tests, offline, no data needed:
 
@@ -155,6 +193,9 @@ python -m retail_analytics synthetic --warehouse data/ci.duckdb
   three died with `MemoryError`, because each materialises a full sheet (over half a million
   rows) before returning anything. `ingest.py` reads row by row and writes a parquet row group
   at a time: slower, and it finishes.
+- `evidence build` wants more than 1.5 GB of Node heap. That is why the production build runs in
+  CI and `npm run dev` is the local loop; if you do want to build locally, raise the limit with
+  `NODE_OPTIONS=--max-old-space-size=4096`.
 
 ## Source
 
