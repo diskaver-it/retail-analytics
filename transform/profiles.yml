@@ -1,0 +1,10 @@
+# Kept in the repo rather than in ~/.dbt so a clone runs without setup. There is
+# nothing secret in it - DuckDB is a file. Run dbt with DBT_PROFILES_DIR=. from
+# this folder, or see the README.
+retail:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('RETAIL_DUCKDB', '../data/retail.duckdb') }}"
+      threads: 4
