@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: retail_raw
+    schema: raw
+    description: >
+      Straight copy of the UCI Online Retail II workbook, loaded by
+      `python -m retail_analytics`. Nothing here has been cleaned.
+    # No freshness block on purpose: this is a static academic extract from 2011,
+    # so there is nothing for it to be fresh against.
+    tables:
+      - name: transactions
+        columns:
+          - name: invoice_no
+            data_tests: [not_null]
+          - name: stock_code
+            data_tests: [not_null]
+          - name: quantity
+            data_tests: [not_null]
+          - name: unit_price
+            data_tests: [not_null]
+          - name: invoice_ts
+            data_tests: [not_null]
+          - name: source_sheet
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: ["year_2009_2010", "year_2010_2011", "synthetic"]

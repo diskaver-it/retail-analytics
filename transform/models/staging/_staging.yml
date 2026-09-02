@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    description: >
+      Typed and flagged invoice lines. Deliberately the same number of rows as
+      the source - see tests/assert_staging_drops_nothing.sql.
+    columns:
+      - name: invoice_no
+        data_tests: [not_null]
+      - name: stock_code
+        data_tests: [not_null]
+      - name: invoice_date
+        data_tests: [not_null]
+      - name: line_revenue
+        description: quantity * unit_price. Negative on a return, by design.
+        data_tests: [not_null]
+      - name: is_cancellation
+        description: Invoice number starts with C.
+        data_tests: [not_null]
+      - name: is_guest
+        description: No customer id on the line, so it cannot join to a customer.
+        data_tests: [not_null]
+      - name: is_product
+        description: Stock code looks like merchandise rather than postage or an adjustment.
+        data_tests: [not_null]
+      - name: is_duplicate_line
+        description: Second and later copies of a row that repeats in every field.
+        data_tests: [not_null]
