@@ -1,0 +1,22 @@
+data/raw/
+data/landing/
+*.xlsx
+*.duckdb
+*.duckdb.wal
+
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# dbt
+transform/target/
+transform/dbt_packages/
+transform/logs/
+transform/.user.yml
+
+# evidence
+dashboard/node_modules/
+dashboard/.evidence/
+dashboard/build/
