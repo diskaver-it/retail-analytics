@@ -1,0 +1,6 @@
+name: retail
+type: duckdb
+options:
+  # Relative to this folder, so three levels up to the repository root. Built by
+  # `dbt build`; opened read-only at dashboard build time.
+  filename: ../../../data/retail.duckdb
