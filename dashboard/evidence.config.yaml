@@ -1,0 +1,13 @@
+title: Online Retail II
+
+# GitHub Pages serves a project site under /<repo>, so every asset and link needs
+# the prefix. It applies in dev too - the local site is at
+# http://localhost:3000/retail-analytics.
+deployment:
+  basePath: /retail-analytics
+
+plugins:
+  components:
+    "@evidence-dev/core-components": {}
+  datasources:
+    "@evidence-dev/duckdb": {}
