@@ -1,10 +1,69 @@
-# retail-analytics
+# retail-analytics — where should the retention budget go?
 
-A warehouse and a set of analytics models over the UCI **Online Retail II** extract:
-1,067,371 invoice lines from a UK online gift wholesaler, December 2009 to December 2011.
+**[Live dashboard](https://diskaver-it.github.io/retail-analytics)** · [Русская версия](README.ru.md)
 
-The pipeline is `download → land → warehouse → dbt → marts → dashboard`. Python moves bytes as
-far as `raw.transactions`; everything after that is SQL, and the dashboard is markdown.
+A UK online gift wholesaler has a fixed budget to win back customers who have gone quiet.
+Marketing wants to spend it on the largest lapsed group. This repository builds the warehouse
+that answers whether that is the right group — 1,067,371 invoice lines from the UCI
+**Online Retail II** extract, December 2009 to December 2011.
+
+There is no client behind a 2011 public file, so the question is one I put to the data rather
+than one I was handed. It is, however, a question this data genuinely answers, and every number
+below comes out of the models in this repository.
+
+## The answer
+
+**Spend it on 352 customers, not on 1,556.**
+
+| RFM segment | Customers | Net revenue | Share | Per customer | Median days silent | Avg orders |
+|---|---:|---:|---:|---:|---:|---:|
+| Champions | 1,476 | £11,491,511 | 70.2% | £7,786 | 16 | 15.5 |
+| Loyal | 1,244 | £2,426,811 | 14.8% | £1,951 | 74 | 5.3 |
+| **At risk** | **352** | **£992,217** | **6.1%** | **£2,819** | **355** | **7.7** |
+| Needs attention | 426 | £423,721 | 2.6% | £995 | 392 | 3.1 |
+| **Hibernating** | **1,556** | **£633,523** | **3.9%** | **£407** | **432** | **1.3** |
+| New | 455 | £235,422 | 1.4% | £517 | 28 | 1.5 |
+| Promising | 323 | £157,812 | 1.0% | £489 | 81 | 1.3 |
+
+The two lapsed segments look similar from a distance — both stopped buying more than six months
+ago — and the larger one is the tempting target. It is the wrong one.
+
+**At risk** customers ordered **7.7 times on average and spent £2,819 each** before going quiet.
+They proved a buying habit and then stopped, which is a question worth asking a human to ask
+them. **Hibernating** customers ordered **1.3 times and spent £407**. There is no habit to
+revive; most of them were never customers in any useful sense, just a first order that never
+repeated. Four times the headcount for two-thirds less money.
+
+Two more things fall out of the same tables:
+
+**Concentration makes "retention" the wrong word.** The top 100 customers carry **36.8% of
+traceable revenue** and the top 10 carry **16.3%**. At that concentration the risk is not churn
+in aggregate, it is one account leaving. That is account management with named owners, not a
+campaign — and it needs a different budget line than the one being argued over.
+
+**An eighth of the revenue cannot be marketed to at all.** 243,007 lines (22.8%) have no
+customer id and carry **£2,567,652 — 13.6% of net revenue**. No retention programme can reach
+them, because there is nobody to reach. If the goal is more repeat revenue, capturing identity
+at checkout has a larger ceiling than any win-back campaign against the £992,217 above — and it
+is a product change, not a marketing spend.
+
+### What would have to be true
+
+The segmentation is a starting point, not a verdict. Three things it cannot tell you:
+
+- **Whether a win-back call works at all.** The data shows who is worth calling; it says nothing
+  about the response rate. The next step is a holdout: contact a random half of the 352, leave
+  the rest alone, and read the difference in 90-day revenue.
+- **Whether "silent" means lost.** This is a wholesaler, and 355 days may be a purchasing cycle
+  rather than a defection. Order-interval distributions per customer would separate the two.
+- **What the customer is worth ahead, not behind.** `monetary` is revenue already banked. A
+  budget decision wants expected future value, which needs a margin column this extract does
+  not have.
+
+## The pipeline
+
+`download → land → warehouse → dbt → marts → dashboard`. Python moves bytes as far as
+`raw.transactions`; everything after that is SQL, and the dashboard is markdown.
 
 ```
 ingest (python)        transform (dbt)         marts                    dashboard (evidence)
@@ -21,8 +80,6 @@ UCI .xlsx              stg_transactions        fct_order_lines          Trading 
 **54 dbt checks and 25 Python tests, all green.** The dbt models are built in CI against a
 synthetic warehouse, so every model and every test runs on each push without downloading
 45 MB from a university server.
-
-## What the data turned out to be
 
 As loaded, before any modelling:
 
@@ -61,9 +118,8 @@ each mart states out loud which rows it wanted, and every number reconciles back
 
 ### 2. Guest baskets stay in revenue and stay out of retention
 
-243,007 lines (22.8%) have no customer id, and they carry **£2,567,652 — 13.6% of net
-revenue**. The common shortcut is `WHERE customer_id IS NOT NULL` at the top of the analysis,
-which deletes an eighth of the revenue before anyone asks a question.
+The common shortcut is `WHERE customer_id IS NOT NULL` at the top of the analysis, which
+deletes an eighth of the revenue before anyone asks a question.
 
 So the denominators are deliberately different: revenue is measured over every line,
 retention only over customers who can be followed across time. `dim_customer` cannot contain
@@ -95,8 +151,8 @@ cohort's real 0% as if they meant the same thing.
 
 `mart_rfm` scores recency from the last day in the extract. Against `current_date` every
 customer in a 2011 file is equally, uselessly stale, all five quintiles collapse into one and
-the segmentation says nothing. Anything that hard-codes "now" breaks the same way the moment
-the data stops being live.
+the segmentation above says nothing at all. Anything that hard-codes "now" breaks the same way
+the moment the data stops being live.
 
 The 5×5 cutoffs are the usual convention rather than something derived from this business —
 stated as such in the model, because a segmentation presented as fact is worse than one
@@ -117,13 +173,10 @@ test ([assert_missing_customers_only_ever_returned.sql](transform/tests/assert_m
 the day a customer goes missing from `dim_customer` with a genuine purchase attached, the build
 fails instead of the shortfall spreading quietly through every customer-level metric.
 
-## Reading the marts
-
-Concentration is severe, which is what a wholesaler looks like: **1,476 customers (25%) are
-"Champions" and account for 70.2% of revenue.** Retention does not decay the way a consumer
-product's does — the December 2009 cohort sits between 33% and 42% monthly for half a year,
-and month 3 (42.5%) is higher than month 1 (35.0%), which is seasonal reordering rather than
-a leak.
+Retention does not decay the way a consumer product's does — the December 2009 cohort sits
+between 33% and 42% monthly for half a year, and month 3 (42.5%) is higher than month 1 (35.0%),
+which is seasonal reordering rather than a leak. That cohort is also an outlier by construction:
+it is not new customers, it is the shop's existing book appearing on the day the extract starts.
 
 ## The dashboard
 
@@ -133,8 +186,8 @@ binary nobody can open.
 
 - **Trading overview** — headline figures, revenue by month, and the split between money that can
   be tied to a customer and money that cannot.
-- **Customers** — cohort retention and RFM segments, with the caveats on the page rather than in
-  a footnote.
+- **Customers** — cohort retention and the RFM segments the recommendation rests on, with the
+  caveats on the page rather than in a footnote.
 - **What was removed** — the rows the pipeline dropped and the argument for dropping them.
 
 The third page is the unusual one. It is there because every figure on the other two depends on
