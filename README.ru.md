@@ -1,5 +1,7 @@
 # retail-analytics — куда потратить бюджет на удержание?
 
+[![CI](https://github.com/diskaver-it/retail-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/diskaver-it/retail-analytics/actions/workflows/ci.yml) [![dashboard](https://github.com/diskaver-it/retail-analytics/actions/workflows/deploy.yml/badge.svg)](https://github.com/diskaver-it/retail-analytics/actions/workflows/deploy.yml)
+
 **[Живой дашборд](https://diskaver-it.github.io/retail-analytics)** · [English version](README.md)
 
 У британского оптовика подарков есть ограниченный бюджет на возврат клиентов, которые перестали
@@ -10,6 +12,8 @@
 За публичным файлом 2011 года не стоит заказчик, поэтому вопрос я задал данным сам, а не получил
 от бизнеса. Но это вопрос, на который эти данные действительно отвечают, и все числа ниже
 посчитаны моделями из этого репозитория.
+
+[![Дашборд](reports/figures/dashboard_home.png)](https://diskaver-it.github.io/retail-analytics)
 
 ## Ответ
 
@@ -173,6 +177,12 @@ UCI .xlsx              stg_transactions        fct_order_lines          Trading 
 между 33% и 42% в месяц, а месяц 3 (42.5%) выше месяца 1 (35.0%) — это сезонный дозаказ, а не
 протечка. Эта когорта к тому же выброс по построению: это не новые клиенты, а существующая база
 магазина, впервые появившаяся в день начала выгрузки.
+
+![Когортное удержание и months observable](reports/figures/dashboard_cohorts.png)
+
+Колонка `months_observable` едет с каждой строкой по причине из решения 4: когорта, впервые
+купившая за три месяца до конца выгрузки, ещё физически не может иметь числа за месяц 6,
+и пустая клетка — не ноль.
 
 ## Дашборд
 

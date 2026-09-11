@@ -1,5 +1,7 @@
 # retail-analytics — where should the retention budget go?
 
+[![CI](https://github.com/diskaver-it/retail-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/diskaver-it/retail-analytics/actions/workflows/ci.yml) [![dashboard](https://github.com/diskaver-it/retail-analytics/actions/workflows/deploy.yml/badge.svg)](https://github.com/diskaver-it/retail-analytics/actions/workflows/deploy.yml)
+
 **[Live dashboard](https://diskaver-it.github.io/retail-analytics)** · [Русская версия](README.ru.md)
 
 A UK online gift wholesaler has a fixed budget to win back customers who have gone quiet.
@@ -10,6 +12,8 @@ that answers whether that is the right group — 1,067,371 invoice lines from th
 There is no client behind a 2011 public file, so the question is one I put to the data rather
 than one I was handed. It is, however, a question this data genuinely answers, and every number
 below comes out of the models in this repository.
+
+[![The dashboard](reports/figures/dashboard_home.png)](https://diskaver-it.github.io/retail-analytics)
 
 ## The answer
 
@@ -177,6 +181,12 @@ Retention does not decay the way a consumer product's does — the December 2009
 between 33% and 42% monthly for half a year, and month 3 (42.5%) is higher than month 1 (35.0%),
 which is seasonal reordering rather than a leak. That cohort is also an outlier by construction:
 it is not new customers, it is the shop's existing book appearing on the day the extract starts.
+
+![Cohort retention with months observable](reports/figures/dashboard_cohorts.png)
+
+`months_observable` travels with every row for the reason in decision 4: a cohort that
+first bought three months before the file ends cannot have a month-six number yet, and a
+blank is not a zero.
 
 ## The dashboard
 
